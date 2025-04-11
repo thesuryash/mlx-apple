@@ -2825,7 +2825,38 @@ array matmul(
     throw std::invalid_argument(msg.str());
   }
   // Type promotion
-  auto out_type = promote_types(a.dtype(), b.dtype());
+  auto out_type = promote_types(a.dtype(), b.dtype()); // storing the common viable dtype out of a & b
+
+
+// optimizing the gemm from using four multiplications to three multiplications
+
+  if (out_type == complex64){
+
+// storing the real and imaginary parts of a & b
+    auto a_real = real(a, s);
+    auto b_real = real(b, s);
+    auto a_img = imag(a, s);
+    auto b_img = imag(b, s);
+
+    auto M1 = matmul(a_real, b_real, s);
+    auto M2 = matmul(a_img, b_img, s);
+
+    auto x_temp = add(a_real, a_img, s);
+    auto y_temp = add(b_real, b_img, s);
+
+    auto M3 = matmul(x_temp, y_temp, s);
+
+    auto c_real = subtract(M1, M2, s);
+    auto c_imag = subtract(M3, add(M1, M2, s), s);
+
+    return add(
+        c_real, multiply(array(complex64_t{0, 1}, complex64), c_imag, s), s);
+
+
+  }
+
+
+
   if (!issubdtype(out_type, floating)) {
     std::ostringstream msg;
     msg << "[matmul] Only real floating point types are supported but "
@@ -4150,6 +4181,17 @@ array addmm(
 
   // Type promotion
   auto out_type = result_type(a, b, c);
+
+
+// implementation of gemm for some alpha and beta
+if (out_type == complex64){
+  return add(
+    multiply(matmul(a, b, s), array(alpha), s),
+    multiply(array(beta), c, s),
+    s
+  );
+}
+
   if (!issubdtype(out_type, floating)) {
     std::ostringstream msg;
     msg << "[addmm] Only real floating point types are supported but "
