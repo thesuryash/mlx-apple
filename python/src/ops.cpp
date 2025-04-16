@@ -2383,6 +2383,43 @@ void init_ops(nb::module_& m) {
             array: The output array with the corresponding axes reduced.
       )pbdoc");
   m.def(
+      "logcumsumexp",
+      [](const mx::array& a,
+         std::optional<int> axis,
+         bool reverse,
+         bool inclusive,
+         mx::StreamOrDevice s) {
+        if (axis) {
+          return mx::logcumsumexp(a, *axis, reverse, inclusive, s);
+        } else {
+          return mx::logcumsumexp(
+              mx::reshape(a, {-1}, s), 0, reverse, inclusive, s);
+        }
+      },
+      nb::arg(),
+      "axis"_a = nb::none(),
+      nb::kw_only(),
+      "reverse"_a = false,
+      "inclusive"_a = true,
+      "stream"_a = nb::none(),
+      nb::sig(
+          "def logcumsumexp(a: array, /, axis: Optional[int] = None, *, reverse: bool = False, inclusive: bool = True, stream: Union[None, Stream, Device] = None) -> array"),
+      R"pbdoc(
+        Return the cumulative logsumexp of the elements along the given axis.
+
+        Args:
+          a (array): Input array
+          axis (int, optional): Optional axis to compute the cumulative logsumexp
+            over. If unspecified the cumulative logsumexp of the flattened array is
+            returned.
+          reverse (bool): Perform the cumulative logsumexp in reverse.
+          inclusive (bool): The i-th element of the output includes the i-th
+            element of the input.
+
+        Returns:
+          array: The output array.
+      )pbdoc");
+  m.def(
       "logsumexp",
       [](const mx::array& a,
          const IntOrVec& axis,
@@ -4427,9 +4464,10 @@ void init_ops(nb::module_& m) {
       "lhs_indices"_a = nb::none(),
       "rhs_indices"_a = nb::none(),
       nb::kw_only(),
+      "sorted_indices"_a = false,
       "stream"_a = nb::none(),
       nb::sig(
-          "def gather_mm(a: array, b: array, /, lhs_indices: array, rhs_indices: array, *, stream: Union[None, Stream, Device] = None) -> array"),
+          "def gather_mm(a: array, b: array, /, lhs_indices: array, rhs_indices: array, *, sorted_indices: bool = False, stream: Union[None, Stream, Device] = None) -> array"),
       R"pbdoc(
         Matrix multiplication with matrix-level gather.
 
@@ -4448,11 +4486,16 @@ void init_ops(nb::module_& m) {
         For ``b`` with shape ``(B1, B2, ..., BS, M, K)``, ``rhs_indices``
         contains indices from the range ``[0, B1 * B2 * ... * BS)``
 
+        If only one index is passed and it is sorted, the ``sorted_indices``
+        flag can be passed for a possible faster implementation.
+
         Args:
             a (array): Input array.
             b (array): Input array.
             lhs_indices (array, optional): Integer indices for ``a``. Default: ``None``
             rhs_indices (array, optional): Integer indices for ``b``. Default: ``None``
+            sorted_indices (bool, optional): May allow a faster implementation
+              if the passed indices are sorted. Default: ``False``.
 
         Returns:
             array: The output array.

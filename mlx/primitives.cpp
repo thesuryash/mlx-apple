@@ -3478,6 +3478,45 @@ std::vector<array> Scan::vjp(
 
   if (reduce_type_ == Scan::Sum) {
     return {cumsum(cotangents[0], axis_, !reverse_, inclusive_, stream())};
+  } else if (reduce_type_ == Scan::LogAddExp) {
+    // Ref:
+    // https://github.com/tensorflow/tensorflow/blob/2a5910906a0e0f3dbc186ff9db6386d81a63448c/tensorflow/python/ops/math_grad.py#L1832-L1863
+
+    auto x = primals[0];
+    auto grad = cotangents[0];
+    auto results = outputs[0];
+
+    auto zero = zeros({1}, grad.dtype(), stream());
+    auto grad_min = array(finfo(grad.dtype()).min, grad.dtype());
+
+    // Split the incoming gradient into positive and negative part
+    // in order to take logs. This is required for stable results.
+    auto log_abs_grad = log(abs(grad, stream()), stream());
+    auto log_grad_positive =
+        where(greater(grad, zero, stream()), log_abs_grad, grad_min, stream());
+    auto log_grad_negative =
+        where(less(grad, zero, stream()), log_abs_grad, grad_min, stream());
+
+    auto output_pos = exp(
+        add(logcumsumexp(
+                subtract(log_grad_positive, results, stream()),
+                axis_,
+                !reverse_,
+                inclusive_,
+                stream()),
+            x,
+            stream()));
+    auto output_neg = exp(
+        add(logcumsumexp(
+                subtract(log_grad_negative, results, stream()),
+                axis_,
+                !reverse_,
+                inclusive_,
+                stream()),
+            x,
+            stream()));
+
+    return {subtract(output_pos, output_neg, stream())};
   } else if (reduce_type_ == Scan::Prod) {
     auto in = primals[0];
     // Find the location of the first 0 and set it to 1:
@@ -4856,6 +4895,8 @@ std::vector<array> GatherMM::vjp(
   int N = cotan.shape(-1);
   int K = primals[0].shape(-1);
 
+  bool sorted = left_sorted_ || right_sorted_;
+
   for (auto arg : argnums) {
     if (arg == 0) {
       // M X N * (K X N).T -> M X K
@@ -4866,7 +4907,8 @@ std::vector<array> GatherMM::vjp(
       base = reshape(base, {-1, M, K}, stream());
 
       // g : (out_batch_shape) + (M, K)
-      auto g = gather_mm(cotan, bt, std::nullopt, rhs_indices, stream());
+      auto g =
+          gather_mm(cotan, bt, std::nullopt, rhs_indices, sorted, stream());
       g = expand_dims(g, -3, stream());
       auto gacc = scatter_add(base, lhs_indices, g, 0, stream());
 
@@ -4881,7 +4923,8 @@ std::vector<array> GatherMM::vjp(
       base = reshape(base, {-1, K, N}, stream());
 
       // g : (out_batch_shape) + (K, N)
-      auto g = gather_mm(at, cotan, lhs_indices, std::nullopt, stream());
+      auto g =
+          gather_mm(at, cotan, lhs_indices, std::nullopt, sorted, stream());
       g = expand_dims(g, -3, stream());
       auto gacc = scatter_add(base, rhs_indices, g, 0, stream());
 
@@ -4892,6 +4935,12 @@ std::vector<array> GatherMM::vjp(
     }
   }
   return vjps;
+}
+
+bool GatherMM::is_equivalent(const Primitive& other) const {
+  const GatherMM& g_other = static_cast<const GatherMM&>(other);
+  return left_sorted_ == g_other.left_sorted_ &&
+      right_sorted_ == g_other.right_sorted_;
 }
 
 bool BlockMaskedMM::is_equivalent(const Primitive& other) const {

@@ -715,6 +715,14 @@ array topk(const array& a, int k, StreamOrDevice s = {});
 /** Returns topk elements of the array along a given axis. */
 array topk(const array& a, int k, int axis, StreamOrDevice s = {});
 
+/** Cumulative logsumexp of an array. */
+array logcumsumexp(
+    const array& a,
+    int axis,
+    bool reverse = false,
+    bool inclusive = true,
+    StreamOrDevice s = {});
+
 /** The logsumexp of all elements of the array. */
 array logsumexp(const array& a, bool keepdims, StreamOrDevice s = {});
 inline array logsumexp(const array& a, StreamOrDevice s = {}) {
@@ -1391,6 +1399,7 @@ array gather_mm(
     array b,
     std::optional<array> lhs_indices = std::nullopt,
     std::optional<array> rhs_indices = std::nullopt,
+    bool sorted_indices = false,
     StreamOrDevice s = {});
 
 /** Extract a diagonal or construct a diagonal array */

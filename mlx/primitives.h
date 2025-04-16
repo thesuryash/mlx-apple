@@ -498,7 +498,13 @@ class BlockMaskedMM : public UnaryPrimitive {
 
 class GatherMM : public UnaryPrimitive {
  public:
-  explicit GatherMM(Stream stream) : UnaryPrimitive(stream) {}
+  explicit GatherMM(
+      Stream stream,
+      bool left_sorted = false,
+      bool right_sorted = false)
+      : UnaryPrimitive(stream),
+        left_sorted_(left_sorted),
+        right_sorted_(right_sorted) {}
 
   void eval_cpu(const std::vector<array>& inputs, array& out) override;
   void eval_gpu(const std::vector<array>& inputs, array& out) override;
@@ -510,7 +516,14 @@ class GatherMM : public UnaryPrimitive {
       const std::vector<array>& outputs) override;
 
   DEFINE_PRINT(GatherMM)
-  DEFINE_DEFAULT_IS_EQUIVALENT()
+  bool is_equivalent(const Primitive& other) const override;
+  auto state() const {
+    return std::make_pair(left_sorted_, right_sorted_);
+  }
+
+ private:
+  bool left_sorted_;
+  bool right_sorted_;
 };
 
 class BroadcastAxes : public UnaryPrimitive {
@@ -1728,7 +1741,7 @@ class Round : public UnaryPrimitive {
 
 class Scan : public UnaryPrimitive {
  public:
-  enum ReduceType { Max, Min, Sum, Prod };
+  enum ReduceType { Max, Min, Sum, Prod, LogAddExp };
 
   explicit Scan(
       Stream stream,
@@ -1762,6 +1775,9 @@ class Scan : public UnaryPrimitive {
         break;
       case Max:
         os << "Max";
+        break;
+      case LogAddExp:
+        os << "Logaddexp";
         break;
     }
   }

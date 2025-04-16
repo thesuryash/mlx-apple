@@ -3493,6 +3493,28 @@ array cummin(
       {a});
 }
 
+array logcumsumexp(
+    const array& a,
+    int axis,
+    bool reverse /* = false*/,
+    bool inclusive /* = true*/,
+    StreamOrDevice s /* = {}*/) {
+  int ndim = a.ndim();
+  if (axis >= ndim || axis < -ndim) {
+    std::ostringstream msg;
+    msg << "[logcumsumexp] Axis " << axis << " is out of bounds for array with "
+        << a.ndim() << " dimensions.";
+    throw std::invalid_argument(msg.str());
+  }
+  axis = (axis + a.ndim()) % a.ndim();
+  return array(
+      a.shape(),
+      a.dtype(),
+      std::make_shared<Scan>(
+          to_stream(s), Scan::ReduceType::LogAddExp, axis, reverse, inclusive),
+      {a});
+}
+
 /** Convolution operations */
 
 namespace {
@@ -4469,6 +4491,7 @@ array gather_mm(
     array b,
     std::optional<array> lhs_indices_ /* = std::nullopt */,
     std::optional<array> rhs_indices_ /* = std::nullopt */,
+    bool sorted_indices /* = false */,
     StreamOrDevice s /* = {} */) {
   // If no indices, fall back to full matmul
   if (!lhs_indices_ && !rhs_indices_) {
@@ -4544,12 +4567,18 @@ array gather_mm(
   out_shape.push_back(M);
   out_shape.push_back(N);
 
-  // Caculate array
+  // Make the output array
   auto out = array(
       std::move(out_shape),
       out_type,
-      std::make_shared<GatherMM>(to_stream(s)),
-      {a, b, lhs_indices, rhs_indices});
+      std::make_shared<GatherMM>(
+          to_stream(s),
+          sorted_indices && !rhs_indices_,
+          sorted_indices && !lhs_indices_),
+      {std::move(a),
+       std::move(b),
+       std::move(lhs_indices),
+       std::move(rhs_indices)});
 
   // Remove the possibly inserted singleton dimensions
   std::vector<int> axes;
