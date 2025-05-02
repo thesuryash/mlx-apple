@@ -2824,38 +2824,31 @@ array matmul(
         << " second input with shape " << b.shape() << ".";
     throw std::invalid_argument(msg.str());
   }
-  // Type promotion
-  auto out_type = promote_types(a.dtype(), b.dtype()); // storing the common viable dtype out of a & b
-
 
 // optimizing the gemm from using four multiplications to three multiplications
 
-  if (out_type == complex64){
-
-// storing the real and imaginary parts of a & b
+  if (a.dtype() == complex64 && b.dtype() == complex64) {
+    // Extract real and imaginary parts
     auto a_real = real(a, s);
+    auto a_imag = imag(a, s);
     auto b_real = real(b, s);
-    auto a_img = imag(a, s);
-    auto b_img = imag(b, s);
+    auto b_imag = imag(b, s);
 
-    auto M1 = matmul(a_real, b_real, s);
-    auto M2 = matmul(a_img, b_img, s);
+    // Compute real and imaginary components of the result
+    auto m1 = matmul(a_real, b_real, s);
+    auto m2 = matmul(a_imag, b_imag, s);
+    auto m3 = matmul(add(a_real, a_imag, s), add(b_real, b_imag, s), s);
 
-    auto x_temp = add(a_real, a_img, s);
-    auto y_temp = add(b_real, b_img, s);
+    auto c_real = subtract(m1, m2, s);
+    auto c_imag = subtract(m3, add(m1, m2, s), s);
 
-    auto M3 = matmul(x_temp, y_temp, s);
-
-    auto c_real = subtract(M1, M2, s);
-    auto c_imag = subtract(M3, add(M1, M2, s), s);
-
-    return add(
-        c_real, multiply(array(complex64_t{0, 1}, complex64), c_imag, s), s);
+    return add(c_real, multiply(array(complex64_t{0, 1}, complex64), c_imag, s), s);
 
 
   }
 
-
+ // Type promotion
+  auto out_type = promote_types(a.dtype(), b.dtype()); // storing the common viable dtype out of a & b
 
   if (!issubdtype(out_type, floating)) {
     std::ostringstream msg;

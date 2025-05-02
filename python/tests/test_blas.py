@@ -1159,6 +1159,7 @@ class TestBlas(mlx_tests.MLXTestCase):
             self.assertTrue(mx.allclose(out_gemv, out_gemm))
 
     def test_complex_gemv(self):
+
         M = 16
         N = 50
 
