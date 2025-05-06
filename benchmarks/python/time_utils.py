@@ -24,6 +24,7 @@ def time_fn(fn, *args, **kwargs):
 
     msec = 1e3 * (toc - tic) / num_iters
     print(f"{msec:.5f} msec")
+    return msec
 
 
 def measure_runtime(fn, **kwargs):
