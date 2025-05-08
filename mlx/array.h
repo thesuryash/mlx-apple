@@ -339,11 +339,11 @@ class array {
     return allocator::allocator().size(buffer());
   }
 
-  // Return a copy of the shared pointer
-  // to the array::Data struct
-  std::shared_ptr<Data> data_shared_ptr() const {
+  // Return the shared pointer to the array::Data struct
+  const std::shared_ptr<Data>& data_shared_ptr() const {
     return array_desc_->data;
   }
+
   // Return a raw pointer to the arrays data
   template <typename T>
   T* data() {
@@ -356,7 +356,7 @@ class array {
   }
 
   enum Status {
-    // The ouptut of a computation which has not been scheduled.
+    // The output of a computation which has not been scheduled.
     // For example, the status of `x` in `auto x = a + b`.
     unscheduled,
 

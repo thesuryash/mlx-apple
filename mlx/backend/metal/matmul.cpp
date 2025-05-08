@@ -7,7 +7,7 @@
 
 #include "mlx/backend/common/broadcasting.h"
 #include "mlx/backend/common/utils.h"
-#include "mlx/backend/metal/copy.h"
+#include "mlx/backend/gpu/copy.h"
 #include "mlx/backend/metal/device.h"
 #include "mlx/backend/metal/kernels.h"
 #include "mlx/backend/metal/kernels/defines.h"
@@ -1908,8 +1908,7 @@ void GatherMM::eval_gpu(const std::vector<array>& inputs, array& out) {
 
   out.set_data(allocator::malloc(out.nbytes()));
 
-  // Extract shapes strides from inputs and copy in case of non-contiguous
-  // vectors.
+  // Extract shapes from inputs.
   int M = a.shape(-2);
   int N = b.shape(-1);
   int K = a.shape(-1);

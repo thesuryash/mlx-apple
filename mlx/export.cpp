@@ -1,5 +1,6 @@
 // Copyright © 2024 Apple Inc.
 #include "mlx/export.h"
+#include <map>
 #include "mlx/compile_impl.h"
 #include "mlx/fast_primitives.h"
 #include "mlx/primitives.h"
@@ -469,6 +470,9 @@ bool FunctionTable::match(
     if (x.dtype() != y.dtype()) {
       return false;
     }
+    if (x.ndim() != y.ndim()) {
+      return false;
+    }
     if (!shapeless && x.shape() != y.shape()) {
       return false;
     }
@@ -481,7 +485,9 @@ bool FunctionTable::match(
       return false;
     }
   }
-  for (auto& [_, in] : kwargs) {
+  auto sorted_kwargs =
+      std::map<std::string, array>(kwargs.begin(), kwargs.end());
+  for (auto& [_, in] : sorted_kwargs) {
     if (!match_inputs(in, fun.inputs[i++])) {
       return false;
     }
@@ -557,7 +563,9 @@ void FunctionExporter::export_function(const Args& args, const Kwargs& kwargs) {
   // Flatten the inputs to the function for tracing
   std::vector<std::string> kwarg_keys;
   auto inputs = args;
-  for (auto& [k, v] : kwargs) {
+  auto sorted_kwargs =
+      std::map<std::string, array>(kwargs.begin(), kwargs.end());
+  for (auto& [k, v] : sorted_kwargs) {
     kwarg_keys.push_back(k);
     inputs.push_back(v);
   }
